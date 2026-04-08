@@ -26,7 +26,7 @@ void save_mode_enable_to_nvs(char mode) {
 // Read the mode status
 char load_mode_enable_from_nvs() {
     nvs_handle_t nvs_handle;
-    uint8_t mode = 0; // Off by default
+    uint8_t mode = 2; // Off by default
     if (nvs_open("mode_state", NVS_READONLY, &nvs_handle) == ESP_OK) {
         nvs_get_u8(nvs_handle, "mode", &mode);
         nvs_close(nvs_handle);

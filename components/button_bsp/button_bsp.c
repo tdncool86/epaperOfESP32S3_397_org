@@ -14,12 +14,12 @@ struct Button Button_Up;            // Application button
 #define Button_Up_active 0          // active level
 
 struct Button Button_Function;      
-#define Button_Function_KEY 5    
+#define Button_Function_KEY 10    
 #define Button_Function_id 2     
 #define Button_Function_active 0    
 
 struct Button Button_Down;    
-#define Button_Down_KEY 6    
+#define Button_Down_KEY 3    
 #define Button_Down_id 3      
 #define Button_Down_active 0   
 
@@ -128,6 +128,32 @@ static void button_press_event(void* btn)
   struct Button *user_button = (struct Button *)btn;
   PressEvent event = get_button_event(user_button);
   uint8_t buttonID = user_button->button_id;
+
+  // ========== 新增：打印按键事件基础信息 ==========
+  const char* button_name = "";
+  const char* event_name = "";
+  // 1. 匹配按键名称
+  switch(buttonID) {
+    case Button_Up_id: button_name = "Button_Up"; break;
+    case Button_Function_id: button_name = "Button_Function"; break;
+    case Button_Down_id: button_name = "Button_Down"; break;
+    case Boot_id: button_name = "Boot"; break;
+    default: button_name = "Unknown"; break;
+  }
+  // 2. 匹配事件名称
+  switch(event) {
+    case SINGLE_CLICK: event_name = "SINGLE_CLICK(单击)"; break;
+    case DOUBLE_CLICK: event_name = "DOUBLE_CLICK(双击)"; break;
+    case PRESS_DOWN: event_name = "PRESS_DOWN(按下)"; break;
+    case PRESS_UP: event_name = "PRESS_UP(弹起)"; break;
+    case PRESS_REPEAT: event_name = "PRESS_REPEAT(重复按下)"; break;
+    case LONG_PRESS_START: event_name = "LONG_PRESS_START(长按触发一次)"; break;
+    case LONG_PRESS_HOLD: event_name = "LONG_PRESS_HOLD(长按持续触发)"; break;
+    default: event_name = "Unknown"; break;
+  }
+  // 3. 打印日志（ESP_LOGI 级别，串口可直接看到）
+  ESP_LOGI("KEY_EVENT", "按键：%s | 事件：%s | 按键ID：%d", button_name, event_name, buttonID);
+   // ========== 原有逻辑保留 ==========
   switch (event)
   {
     case SINGLE_CLICK:

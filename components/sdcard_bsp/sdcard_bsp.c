@@ -11,12 +11,20 @@
 
 static const char *TAG = "_sdcard";
 
-#define SDMMC_D0_PIN    15
+// #define SDMMC_D0_PIN    15
+// #define SDMMC_D1_PIN    7
+// #define SDMMC_D2_PIN    8
+// #define SDMMC_D3_PIN    18
+// #define SDMMC_CLK_PIN   16
+// #define SDMMC_CMD_PIN   17
+
+
+#define SDMMC_D0_PIN    13
 #define SDMMC_D1_PIN    7
-#define SDMMC_D2_PIN    8
-#define SDMMC_D3_PIN    18
-#define SDMMC_CLK_PIN   16
-#define SDMMC_CMD_PIN   17
+#define SDMMC_D2_PIN    4
+#define SDMMC_D3_PIN    2
+#define SDMMC_CLK_PIN   12
+#define SDMMC_CMD_PIN   11
 
 #define SDlist "/sdcard" // Mount point
 

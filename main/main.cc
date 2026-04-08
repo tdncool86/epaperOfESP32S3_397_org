@@ -442,15 +442,15 @@ extern "C" void app_main(void)
 
     // Initialize the SD card
     _sdcard_init();
-    i2c_master_init();   // Initialize the I2C bus
+    // i2c_master_init();   // Initialize the I2C bus
     vTaskDelay(pdMS_TO_TICKS(50)); 
-    i2c_devices_init();  // Initialize all I2C devices
+    // i2c_devices_init();  // Initialize all I2C devices
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    spiffs_init();
+    // spiffs_init();
 
     // Initialize the RTC
-    PCF85063_init();
+    // PCF85063_init();
     // PCF85063_alarm_Time_Disable();
     // PCF85063_clear_alarm_flag();
 
@@ -482,10 +482,10 @@ extern "C" void app_main(void)
     button_Init();
 
     // Initialize the temperature and humidity sensor
-    i2c_shtc3_init();  
+    // i2c_shtc3_init();  
 
     // Initialize the audio
-    page_audio_int();
+    // page_audio_int();
 
     // E-ink screen pin initialization
     epaper_port_init();
@@ -522,7 +522,7 @@ extern "C" void app_main(void)
         PCF85063_clear_alarm_flag();
 
         // Initialize the six-axis sensor
-        QMI8658_init();
+        // QMI8658_init();
 
         Paint_NewImage(Image_Mono, EPD_WIDTH, EPD_HEIGHT, 270, WHITE);
         Paint_SetScale(2);
@@ -558,7 +558,7 @@ extern "C" void app_main(void)
         // Create the main menu task
         xTaskCreate(user_Task, "user_Task", 64 * 1024, NULL, USER_TASK_PRIO, NULL);
         // Create an alarm clock background monitoring task
-        xTaskCreate(alarm_task, "alarm_task", 4 * 1024, NULL, ALARM_TASK_PRIO, NULL);
+        // xTaskCreate(alarm_task, "alarm_task", 4 * 1024, NULL, ALARM_TASK_PRIO, NULL);
 
         ESP_LOGE("EVEN","Restarting now.\n");
     }
