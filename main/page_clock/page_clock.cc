@@ -105,6 +105,7 @@ static int load_lunar_month_from_sd(const char* year, const char* month, LunarIn
 static void display_clock_init(void);
 static void display_clock_img(Time_data rtc_time, int Refresh_mode);
 
+static void display_calendar_img_today(Time_data rtc_time, LunarInfo* month_info);
 static void display_calendar_img(Time_data rtc_time, LunarInfo* month_info);
 static void display_clock_mode_img(Time_data rtc_time);
 
@@ -698,7 +699,9 @@ void page_calendar_show_mode()
                 PCF85063_SetTime(rtc_time);
             }
         }
-        display_calendar_img(rtc_time, month_info);
+        // display_calendar_img(rtc_time, month_info);
+        display_calendar_img_today(rtc_time, month_info);
+
         ESP_LOGI("clock", "EPD_Sleep");
         EPD_Sleep();
         if(check_alarm(rtc_time.hours, rtc_time.minutes))
@@ -1216,7 +1219,196 @@ static void display_clock_img(Time_data rtc_time, int Refresh_mode)
     }
     
 }
+static void display_calendar_img_today(Time_data rtc_time, LunarInfo* month_info)
+{
 
+    Paint_NewImage(Image_Mono, EPD_WIDTH, EPD_HEIGHT, 0, WHITE);
+    Paint_SetScale(2);
+    Paint_SelectImage(Image_Mono);
+    Paint_Clear(WHITE);
+    int BAT_Power;
+    char BAT_str[10] = {0};
+    BAT_Power = get_battery_power();
+    ESP_LOGI("BAT_Power", "BAT_Power = %d%%", BAT_Power);
+    snprintf(BAT_str, sizeof(BAT_str), "%d％", BAT_Power);
+    if (BAT_Power == -1) BAT_Power = 20;
+    else BAT_Power = BAT_Power * 20 / 100;
+
+#if defined(CONFIG_IMG_SOURCE_EMBEDDED)
+    Paint_ReadBmp(gImage_BAT,694,28,32,16);
+#elif defined(CONFIG_IMG_SOURCE_TFCARD)
+    GUI_ReadBmp(BMP_BAT_PATH, 694, 28);
+#endif
+    Paint_DrawRectangle(699, 33, 719, 41, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(699, 33, 699+BAT_Power, 41, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawRectangle(734, 25, 800, 60, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(734, 25, BAT_str, &Font12_UTF8, WHITE, BLACK);
+
+    Paint_DrawRectangle(3, 70, 113, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(46, 74, "一", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(117, 70, 227, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(161, 74, "二", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(231, 70, 341, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(274, 74, "三", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(345, 70, 455, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(388, 74, "四", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(459, 70, 569, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(502, 74, "五", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(573, 70, 683, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(616, 74, "六", &Font16_UTF8, BLACK, WHITE);
+    Paint_DrawRectangle(687, 70, 797, 106, BLACK, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+    Paint_DrawString_CN(730, 74, "日", &Font16_UTF8, BLACK, WHITE);
+
+
+    char Time_str[50]={0};
+
+    ESP_LOGI("clock", "current time: %04d-%02d-%02d %02d:%02d:%02d week: %d", rtc_time.years + 2000, rtc_time.months, rtc_time.days, rtc_time.hours, rtc_time.minutes, rtc_time.seconds, rtc_time.week);
+
+    snprintf(Time_str, sizeof(Time_str), "%04d-%02d-%02d", rtc_time.years + 2000, rtc_time.months, rtc_time.days);
+    Paint_DrawString_CN(24, 18, Time_str, &Font24_UTF8, WHITE, BLACK);  //2026-04-xx 
+    
+    char year_str[8], month_str[8];
+    snprintf(year_str, sizeof(year_str), "%04d", rtc_time.years + 2000);
+    snprintf(month_str, sizeof(month_str), "%02d", rtc_time.months);
+
+    int lunar_days = 0;
+    char lunar_file[64];
+    bool use_sdcard = is_sdcard_mounted();
+
+    if (use_sdcard) {
+        snprintf(lunar_file, sizeof(lunar_file), "/sdcard/lunar/%04d-%02d.json", rtc_time.years + 2000, rtc_time.months);
+    } else {
+        snprintf(lunar_file, sizeof(lunar_file), "/spiffs/lunar_%04d-%02d.json", rtc_time.years + 2000, rtc_time.months);
+    }
+
+    ESP_LOGI("lunar", "lunar = %s",lunar_file);
+    FILE* fp = fopen(lunar_file, "r");
+    bool file_exist = (fp != NULL);
+    ESP_LOGI("lunar", "file_exist = %d",file_exist);
+
+    char lunar_days_str[128] = {0};
+    char calendar_days_str[16] = {0};
+    if (!file_exist) {
+        if (fp) fclose(fp);
+        if(wifi_is_connected())
+        {
+            esp_netif_ip_info_t ip_info;
+            esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+            esp_err_t ip_ret = esp_netif_get_ip_info(netif, &ip_info);
+            if (ip_ret != ESP_OK || ip_info.ip.addr == 0) {
+                ESP_LOGI("lunar", "The IP address for WiFi was not obtained. Please check your network!");
+                Paint_DrawString_CN(10, 110, "WiFi未获取到IP地址，请检查网络！", &Font24_UTF8, WHITE, BLACK);
+            } else {
+                ESP_LOGI("lunar", "The lunar calendar data is being obtained and saved through the network connection...");
+                Paint_DrawString_CN(10, 110, "正在联网获取并保存农历数据...", &Font24_UTF8, WHITE, BLACK);
+                Refresh_page_clock();
+                fetch_and_save_lunar_month_to_sd(year_str, month_str, month_info);
+                fp = fopen(lunar_file, "r");
+                file_exist = (fp != NULL);
+                fclose(fp);
+                Paint_DrawRectangle(0, 110, EPD_WIDTH, EPD_HEIGHT, WHITE, DOT_PIXEL_1X1, DRAW_FILL_FULL);
+            }
+        } else {
+            ESP_LOGI("lunar", "There is no network connection and no local files. Calendar acquisition failed...");
+            Paint_DrawString_CN(10, 110, "无网络连接，也无本地文件，日历获取失败", &Font24_UTF8, WHITE, BLACK);
+        }
+    } 
+
+    if(file_exist) {
+        ESP_LOGI("lunar", "The local lunar data file has been found: %s", lunar_file);
+        lunar_days = load_lunar_month_from_sd(year_str, month_str, month_info);
+    } else if(wifi_is_connected()){
+        int y = atoi(year_str);
+        int m = atoi(month_str);
+        lunar_days = get_days_in_month(y, m);
+    } else {
+        lunar_days = 0;
+    }
+    
+    if(lunar_days) {
+        int day = rtc_time.days;
+        if (day >= 1 && day <= lunar_days) {
+            LunarInfo* info = &month_info[day-1];
+            ESP_LOGI("lunar", "Chinese calendar: %s %s%s%s festival: %s solar terms: %s week: %s", info->lunarDate, info->gzYear, info->IMonthCn, info->IDayCn, info->lunarFestival[0] ? info->lunarFestival : info->festival, info->Term, info->ncWeek);
+            snprintf(lunar_days_str, sizeof(lunar_days_str), "%s%s%s  %s", info->gzYear, info->IMonthCn, info->IDayCn, info->ncWeek);
+            Paint_DrawString_CN(280, 27, lunar_days_str, &Font16_UTF8, WHITE, BLACK);
+        } else {
+            ESP_LOGW("lunar", "The lunar information for that day does not exist");
+            const char* fallback_week = (month_info && month_info[0].ncWeek[0]) ? month_info[0].ncWeek : "";
+            snprintf(lunar_days_str, sizeof(lunar_days_str), "当天农历信息不存在  %s", fallback_week);
+            Paint_DrawString_CN(280, 27, lunar_days_str, &Font16_UTF8, WHITE, BLACK);
+        }
+
+        int x_[7] = {3,117,231,345,459,573,687};
+        int x_e[7] = {58,172,286,400,514,628,742};
+        int y[5] = {110,184,258,332,406};
+        int y_e[5] = {117,191,265,339,413};
+        int y_c[5] = {152,226,300,374,448};
+        int x_size = 0;
+        int y_size = 0;
+        uint16_t x_or = 0;
+        const char* week_str[] = {"星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"};
+        if (month_info && month_info[0].ncWeek[0] != '\0') {
+            for (size_t i = 0; i < 7; i++) {
+                if (strcmp(month_info[0].ncWeek, week_str[i]) == 0) {
+                    x_size = (int)i;
+                    break;
+                }
+            }
+        }
+        ESP_LOGI("lunar", "month start weekday index = %d", x_size + 1);
+
+        for (int i = 0; i < lunar_days; i++) {
+            if(x_size > 6){
+                y_size++;
+                x_size=0;
+            }
+            if (y_size > 4){
+                y_size = 0;
+            }
+
+            if (i == day - 1) {
+                Paint_DrawRectangle(x_[x_size], y[y_size], x_[x_size] + 110, y[y_size] + 70, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);//框中当天日期
+            }
+
+            // Japanese version of the Gregorian calendar
+            snprintf(calendar_days_str, sizeof(calendar_days_str), "%d", i + 1);
+            x_or = reassignCoordinates_EN(x_e[x_size], calendar_days_str, &Font16);
+            // Paint_DrawString_EN(x_or, y_e[y_size], calendar_days_str, &Font16, WHITE, BLACK); //日期阵列
+            /*********************节日阴历阵列*************************************/ 
+            // Lunar/festival priority: Lunar Festival > festival > Term > IDayCn
+            // if (month_info[i].lunarFestival[0] != '\0') {
+            //     x_or = reassignCoordinates_CH(x_e[x_size], month_info[i].lunarFestival, &Font12_UTF8);
+            //     Paint_DrawString_CN(x_or, y_c[y_size], month_info[i].lunarFestival, &Font12_UTF8, WHITE, BLACK);
+            // } else if (month_info[i].festival[0] != '\0') {
+            //     x_or = reassignCoordinates_CH(x_e[x_size], month_info[i].festival, &Font12_UTF8);
+            //     Paint_DrawString_CN(x_or, y_c[y_size], month_info[i].festival, &Font12_UTF8, WHITE, BLACK);
+            // } else if (month_info[i].Term[0] != '\0') {
+            //     x_or = reassignCoordinates_CH(x_e[x_size], month_info[i].Term, &Font12_UTF8);
+            //     Paint_DrawString_CN(x_or, y_c[y_size], month_info[i].Term, &Font12_UTF8, WHITE, BLACK);
+            // } else if (month_info[i].IDayCn[0] != '\0') {
+            //     if(strcmp(month_info[i].IDayCn, "初一") == 0) {
+            //         x_or = reassignCoordinates_CH(x_e[x_size], month_info[i].IMonthCn, &Font12_UTF8);
+            //         Paint_DrawString_CN(x_or, y_c[y_size], month_info[i].IMonthCn, &Font12_UTF8, WHITE, BLACK);
+            //     } else {
+            //         x_or = reassignCoordinates_CH(x_e[x_size], month_info[i].IDayCn, &Font12_UTF8);
+            //         Paint_DrawString_CN(x_or, y_c[y_size], month_info[i].IDayCn, &Font12_UTF8, WHITE, BLACK);
+            //     }
+                
+            // }
+
+            x_size++;
+            // if (x_size >= 7) x_size = 0;
+        }
+    }
+
+    ESP_LOGI("clock", "EPD_Init");
+    EPD_Init();
+    Forced_refresh_clock();
+    ESP_LOGI("clock", "EPD_Sleep");
+    EPD_Sleep();
+
+}
 
 static void display_calendar_img(Time_data rtc_time, LunarInfo* month_info)
 {
@@ -1367,7 +1559,7 @@ static void display_calendar_img(Time_data rtc_time, LunarInfo* month_info)
             }
 
             if (i == day - 1) {
-                Paint_DrawRectangle(x_[x_size], y[y_size], x_[x_size] + 110, y[y_size] + 70, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);
+                Paint_DrawRectangle(x_[x_size], y[y_size], x_[x_size] + 110, y[y_size] + 70, BLACK, DOT_PIXEL_2X2, DRAW_FILL_EMPTY);//框中当天日期
             }
 
             // Japanese version of the Gregorian calendar
