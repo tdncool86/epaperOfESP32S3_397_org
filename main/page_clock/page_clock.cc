@@ -673,7 +673,7 @@ void page_calendar_show(void)
     }
     heap_caps_free(month_info);
 }
-
+//#if calendar_show_mode
 // Mode 2 Usage calendar
 void page_calendar_show_mode() 
 {
@@ -716,7 +716,7 @@ void page_calendar_show_mode()
     vTaskDelay(pdMS_TO_TICKS(50));
     axp_pwr_off();
 }
-
+//#endif
 extern const char api_root_cert_pem_start[] asm("_binary_api_root_cert_pem_start");
 extern const char api_root_cert_pem_end[]   asm("_binary_api_root_cert_pem_end");
 
@@ -1166,7 +1166,7 @@ static void display_clock_img(Time_data rtc_time, int Refresh_mode)
     Clock_TH_Old.minutes = rtc_time.minutes;
     snprintf(hours, sizeof(hours), "%02d", rtc_time.hours);
     snprintf(minutes, sizeof(minutes), "%02d", rtc_time.minutes);
-    
+    /*-------------小时和分钟显示，大字体-------------------------------*/
     Paint_DrawString_EN(129, 157, hours, &Font182, WHITE, BLACK);
     Paint_DrawString_EN(431, 157, minutes, &Font182, WHITE, BLACK);
     Paint_DrawString_CN(125, 410, Time_str, &Font18_UTF8, WHITE, BLACK);

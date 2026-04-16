@@ -530,6 +530,102 @@ void Paint_DrawString_EN(UWORD Xstart, UWORD Ystart, const char * pString,
 
 
 /******************************************************************************
+function: Display the string with one font
+parameter:
+    Xstart  ：X coordinate
+    Ystart  ：Y coordinate
+    pString ：The first address of the Chinese string and English
+              string to be displayed
+    Font    ：A structure pointer that displays a character size
+    Color_Foreground : Select the foreground color
+    Color_Background : Select the background color
+******************************************************************************/
+void Paint_DrawString_CN_WithOneFont(UWORD Xstart, UWORD Ystart, const char * pString, cFONT* font, UWORD Color_Foreground, UWORD Color_Background)
+{
+    const char *p_text;
+    int x, y;
+    int char_len;
+    char current_char[6];
+    size_t buf_len;
+    unsigned char *font_buffer = NULL;
+    int read_size;
+
+    if (!pString || !font) {
+        ESP_LOGE(TAG, "Paint_DrawString_CN: The parameter is empty.");
+        return;
+    }
+
+    p_text = pString;
+    x = Xstart;
+    y = Ystart;
+
+    buf_len = (font->size_CH > font->size_EN) ? font->size_CH : font->size_EN;
+    if (buf_len == 0) buf_len = 256; // 保底
+    font_buffer = (unsigned char*)malloc(buf_len);
+    if (!font_buffer) {
+        ESP_LOGE(TAG, "Paint_DrawString_CN: font_buffer malloc failed size=%zu", buf_len);
+        return;
+    }
+
+    // ESP_LOGD(TAG, "开始绘制中文字符串: %s", pString);
+
+    while (*p_text != '\0') {
+        if (font->encoding == FONT_ENCODING_UTF8) {
+            char_len = Get_UTF8_Char_Length((unsigned char)*p_text);
+            if (char_len <= 0) char_len = 1;
+        } else { 
+            char_len = ((unsigned char)*p_text < 0x80) ? 1 : 2;
+        }
+
+        if (char_len >= (int)sizeof(current_char)) char_len = (int)sizeof(current_char) - 1;
+        memset(current_char, 0, sizeof(current_char));
+        memcpy(current_char, p_text, char_len);
+        current_char[char_len] = '\0';
+
+        read_size = Get_Char_Font_Data((void*)font, current_char, font_buffer);
+        if (read_size <= 0) {
+            ESP_LOGW(TAG, "The character pattern cannot be read: %s", current_char);
+            p_text += char_len;
+            continue;
+        }
+
+        int char_width = (char_len == 1) ? font->Width_EN : font->Width_CH;
+        int char_height = font->Height;
+
+        if (x + char_width > Paint.Width) {
+            x = Xstart;
+            y += char_height;
+        }
+
+        if (y + char_height > Paint.Height) {
+            ESP_LOGW(TAG, "Paint_DrawString_CN: Stop drawing when it exceeds the display area");
+            break;
+        }
+
+        const unsigned char *ptr = font_buffer;
+        int row, col;
+        for (row = 0; row < char_height; row++) {
+            for (col = 0; col < char_width; col++) {
+                if (*ptr & (0x80 >> (col % 8))) {
+                    Paint_SetPixel(x + col, y + row, Color_Foreground);
+                } else {
+                    Paint_SetPixel(x + col, y + row, Color_Background);
+                }
+                if (col % 8 == 7) ptr++;
+            }
+            if (char_width % 8 != 0) ptr++;
+        }
+
+        p_text += char_len;
+        x += char_width;
+    }
+
+    free(font_buffer);
+    // ESP_LOGD(TAG, "中文字符串绘制完成");
+}
+
+
+/******************************************************************************
 function: Display the string
 parameter:
     Xstart  ：X coordinate
@@ -542,6 +638,8 @@ parameter:
 ******************************************************************************/
 void Paint_DrawString_CN(UWORD Xstart, UWORD Ystart, const char * pString, cFONT* font, UWORD Color_Foreground, UWORD Color_Background)
 {
+    // NULL;
+   // font = &Font12_UTF8;
     const char *p_text;
     int x, y;
     int char_len;
